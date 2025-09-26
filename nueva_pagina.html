@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mi Nueva Página</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(120deg, #e3f2fd 0%, #fffde7 100%);
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            background: #fff;
+            box-shadow: 0 4px 24px rgba(33, 150, 243, 0.12);
+            border-radius: 18px;
+            padding: 40px 32px;
+            border-top: 8px solid #ffb300;
+        }
+        h1 {
+            color: #1565c0;
+            text-align: center;
+            margin-bottom: 32px;
+            font-size: 2.4em;
+            letter-spacing: 2px;
+        }
+        p {
+            color: #333;
+            font-size: 1.2em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bienvenido a la nueva página</h1>
+        <p>Este es el contenido inicial. Puedes editarlo y agregar lo que desees.</p>
+    </div>
+df = load_data()
+    </body>
+</html>
+# -------------------
+st.sidebar.header("Filtros")
+
+seccional = st.sidebar.selectbox("Seccional", options=["Todos"] + sorted(df["SECCIONAL"].dropna().unique().tolist()))
+dependencia = st.sidebar.selectbox("Dependencia Padre", options=["Todos"] + sorted(df["DEPENDENCIA PADRE"].dropna().unique().tolist()))
+responsable = st.sidebar.selectbox("Responsable", options=["Todos"] + sorted(df["NOMBRE RESPESPONSABLE"].dropna().unique().tolist()))
+nro_proceso = st.sidebar.selectbox("Nro Proceso", options=["Todos"] + sorted(df["NRO PROCESO"].dropna().unique().tolist()))
+
+# Correo para enviar alertas
+st.sidebar.header("⚠️ Configuración de Alertas")
+email_destino = st.sidebar.text_input("Correo destino", "tu_correo@dominio.com")
+
+# Aplicar filtros
+df_filtered = df.copy()
+if seccional != "Todos":
+    df_filtered = df_filtered[df_filtered["SECCIONAL"] == seccional]
+if dependencia != "Todos":
+    df_filtered = df_filtered[df_filtered["DEPENDENCIA PADRE"] == dependencia]
+if responsable != "Todos":
+    df_filtered = df_filtered[df_filtered["NOMBRE RESPESPONSABLE"] == responsable]
+if nro_proceso != "Todos":
+    df_filtered = df_filtered[df_filtered["NRO PROCESO"] == nro_proceso]
+
+# -------------------
+# KPIs principales
+# -------------------
+total = len(df_filtered)
+alerta = len(df_filtered[df_filtered["TIEMPO_CUSTODIA(DIAS)"] > 180])
+
+col1, col2 = st.columns(2)
+col1.metric("Vehículos totales", total)
+col2.metric("Vehículos con alerta (>180 días)", alerta)
+
+# -------------------
+# Tabla de detalles
+# -------------------
+st.subheader("📋 Detalle de vehículos con alerta (>180 días)")
+
+df_alerta = df_filtered[df_filtered["TIEMPO_CUSTODIA(DIAS)"] > 180].copy()
+df_alerta = df_alerta[[
+    "SECCIONAL", "DEPENDENCIA PADRE", "NOMBRE RESPESPONSABLE",
+    "NRO PROCESO", "PLACA SIAF", "FECHA ENTRADA", "TIEMPO_CUSTODIA(DIAS)"
+]]
+
+st.dataframe(df_alerta)
+
+# -------------------
+# Gráfico de distribución
+# -------------------
+st.subheader("📊 Distribución de tiempos en custodia")
+
+fig, ax = plt.subplots(figsize=(8,5))
+df_filtered["TIEMPO_CUSTODIA(DIAS)"].dropna().hist(bins=40, ax=ax, color="skyblue", edgecolor="black")
+ax.axvline(180, color="red", linestyle="--", label="180 días (Alerta)")
+ax.set_xlabel("Días en custodia")
+ax.set_ylabel("Cantidad de vehículos")
+ax.legend()
+st.pyplot(fig)
+
+# -------------------
+# Envío de alertas por correo
+# -------------------
+def enviar_alerta(destinatario, df_alerta):
+    if len(df_alerta) == 0:
+        return "No hay vehículos con más de 180 días."
+
+    remitente = EMAIL_USER
+    password = EMAIL_PASS
+
+    asunto = "Alerta de  Custodia de Vehículos (>180 días)"
+     cuerpo = "Se detectaron los siguientes vehículos en custodia con más de 180 días:\n\n"
+    cuerpo += df_alerta.to_string(index=False)
+
+    msg = MIMEMultipart()
+    msg["From"] = remitente
+    msg["To"] = destinatario
+    msg["Subject"] = asunto
+    msg.attach(MIMEText(cuerpo, "plain"))
+
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(remitente, password)
+            server.send_message(msg)
+        return f"✅ Correo enviado a {destinatario}"
+    except Exception as e:
+        return f"❌ Error enviando correo: {e}"
+
+if st.sidebar.button("📨 Enviar alerta por correo"):
+    resultado = enviar_alerta(email_destino, df_alerta)
+    st.sidebar.success(resultado)
+    EMAIL_USER=tu_usuario@gmail.com
+EMAIL_PASS=tu_contraseña_app
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+
+streamlit run dashboard_custodia.py
+
